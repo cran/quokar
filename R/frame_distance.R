@@ -1,0 +1,96 @@
+globalVariables("tau_flag")
+#' @title Residual-robust distance plot of quantile regression model
+#' @description the standardized residuals from quantile regression
+#' against the robust MCD distance. This display is used to diagnose
+#' both vertical outlier and horizontal leverage points. Function
+#' `frame_distance` only work for linear quantile regression model. With
+#' non-linear model, use `frame_distance_implement`
+#' @param object model, quantile regression model
+#' @param tau singular or vectors, quantile
+#' @return dataframe for residual-robust distance plot
+#' @details The generalized MCD algorithm based on the fast-MCD
+#' algorithm formulated by Rousseeuw and Van Driessen(1999), which
+#' is similar to the algorithm for least trimmed squares(LTS).
+#' The canonical Mahalanobis distance is defined as
+#' \deqn{MD(x_i)=[(x_i-\bar{x})^{T}\bar{C}(X)^{-1}(x_i-\bar{x})]^{1/2}}
+#' where \eqn{\bar{x}=\frac{1}{n}\sum_{i=1}^{n}x_i} and
+#' \eqn{\bar{C}(X)=\frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar{x})^{T}(x_i-
+#' \bar{x})} are the empirical multivariate location and scatter,
+#' respectively. Here \eqn{x_i=(x_{i1},...,x_{ip})^{T}} exclueds the
+#' intercept. The relation between the Mahalanobis distance
+#' \eqn{MD(x_i)} and the hat matrix
+#' \eqn{H=(h_{ij})=X(X^{T}X)^{-1}X^{T}} is
+#' \deqn{h_{ii}=\frac{1}{n-1}MD^{2}_{i}+\frac{1}{n}}
+#' The canonical robust distance is defined as
+#' \deqn{RD(x_{i})=[(x_{i}-T(X))^{T}C(X)^{-1}(x_{i}-T(X))]^{1/2}}
+#' where \eqn{T(X)} and \eqn{C(X)} are the robust multivariate
+#' location and scatter, respectively, obtained by MCD.
+#' To achieve robustness, the MCD algorithm estimates the covariance
+#' of a multivariate data set mainly through as MCD \eqn{h}-point
+#' subset of data set. This subset has the smallest sample-covariance
+#' determinant among all the possible \eqn{h}-subsets. Accordingly,
+#' the breakdown value for the MCD algorithm equals
+#' \eqn{\frac{(n-h)}{n}}. This means the MCD estimates is reliable,
+#' even if up to \eqn{\frac{100(n-h)}{n}}% observations in the data
+#' set are contaminated.
+#' @author Wenjing Wang \email{wenjingwangr@gmail.com}
+#' @seealso function `frame_distance_complex`
+#' @examples
+#' library(quantreg)
+#' library(ggplot2)
+#' library(ALDqr)
+#' library(purrr)
+#' library(robustbase)
+#' library(tidyr)
+#' library(gridExtra)
+#' tau = c(0.1, 0.5, 0.9)
+#' ais_female <- subset(ais, Sex == 1)
+#' object <- rq(BMI ~ LBM + Ht, data = ais_female, tau = tau)
+#' plot_distance <- frame_distance(object, tau = c(0.1, 0.5, 0.9))
+#' distance <- plot_distance[[1]]
+#' cutoff_v <- plot_distance[[2]]
+#' cutoff_h <- plot_distance[[3]]
+#' n <- nrow(object$model)
+#' case <- rep(1:n, length(tau))
+#' distance <- cbind(case, distance)
+#' distance$residuals <- abs(distance$residuals)
+#' distance1 <- subset(distance, tau_flag == "tau0.1")
+#' p1 <- ggplot(distance1, aes(x = rd, y = residuals)) +
+#'  geom_point() +
+#'  geom_hline(yintercept = cutoff_h[1], colour = "red") +
+#'  geom_vline(xintercept = cutoff_v, colour = "red") +
+#'  geom_text(data = subset(distance1, residuals > cutoff_h[1]|rd > cutoff_v),
+#'            aes(label = case), hjust = 0, vjust = 0) +
+#'  xlab("Robust Distance") +
+#'  ylab("|Residuals|")
+#'
+#' distance2 <- subset(distance, tau_flag == "tau0.5")
+#'
+#' p2 <- ggplot(distance1, aes(x = rd, y = residuals)) +
+#'  geom_point() +
+#'  geom_hline(yintercept = cutoff_h[2], colour = "red") +
+#'  geom_vline(xintercept = cutoff_v, colour = "red") +
+#'  geom_text(data = subset(distance1, residuals > cutoff_h[2]|rd > cutoff_v),
+#'           aes(label = case), hjust = 0, vjust = 0) +
+#'  xlab("Robust Distance") +
+#'  ylab("|Residuals|")
+
+#' distance3 <- subset(distance, tau_flag == "tau0.9")
+#'
+#' p3 <- ggplot(distance1, aes(x = rd, y = residuals)) +
+#'  geom_point() +
+#'  geom_hline(yintercept = cutoff_h[3], colour = "red") +
+#'  geom_vline(xintercept = cutoff_v, colour = "red") +
+#'  geom_text(data = subset(distance1, residuals > cutoff_h[3]|rd > cutoff_v),
+#'          aes(label = case), hjust = 0, vjust = 0) +
+#' xlab("Robust Distance") +
+#'  ylab("|Residuals|")
+#' grid.arrange(p1, p2, p3, ncol = 3)
+#'
+#' @export
+frame_distance <- function(object, tau){
+  x <- apply(as.matrix(object$model[, -1]), 2, as.numeric)
+  resid <- object$residuals
+  frame_distance_complex(x,resid,tau)
+}
+
